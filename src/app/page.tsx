@@ -1,4 +1,4 @@
-import { getClients, getStats } from "@/lib/db";
+import { getStats, getClients } from "@/lib/db";
 import { brl, timeAgo } from "@/lib/format";
 import StatCard from "@/components/StatCard";
 import RecoveryChart from "@/components/RecoveryChart";
@@ -36,40 +36,32 @@ export default async function DashboardPage() {
   const overdue = clients.filter((c) => c.status !== "pago").slice(0, 6);
 
   return (
-    <div className="px-8 py-7">
-      <div className="flex items-center justify-between mb-1">
-        <h1 className="text-[22px] font-medium">Dashboard</h1>
+    <div className="px-4 sm:px-8 py-5 sm:py-7">
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <h1 className="text-lg sm:text-[22px] font-medium">Dashboard</h1>
         <DemoControls isDemo={isDemo} />
       </div>
-      <p className="text-[13px] text-muted mb-6">
-        Visao geral da recuperacao de receita da Clinica OdontoVida
-      </p>
+      <p className="text-xs sm:text-[13px] text-muted mb-5 sm:mb-6">Recuperacao de receita — Clinica OdontoVida</p>
 
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 mb-4 sm:mb-5">
         <StatCard label="Em aberto" value={brl(stats.totalOutstanding)} sub={`${stats.overdueCount} clientes`} />
-        <StatCard label="Recuperado (mes)" value={brl(stats.recoveredThisMonth)} sub="+12% vs anterior" tone="success" />
-        <StatCard label="Taxa de recuperacao" value={`${stats.recoveryRate}%`} sub="Meta: 60%" tone="success" />
-        <StatCard label="Negociacoes ativas" value={String(stats.activeNegotiations)} sub="em andamento" />
+        <StatCard label="Recuperado (mes)" value={brl(stats.recoveredThisMonth)} sub="+12%" tone="success" />
+        <StatCard label="Taxa recuperacao" value={`${stats.recoveryRate}%`} sub="Meta: 60%" tone="success" />
+        <StatCard label="Escalados" value={String(stats.escalatedCount)} sub="com responsavel" tone={stats.escalatedCount > 0 ? "danger" : "default"} />
       </div>
 
-      <div className="grid grid-cols-[1fr_300px] gap-4 mb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3 sm:gap-4 mb-3 sm:mb-4">
         <div className="card overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <span className="text-[13px] font-medium">Clientes atrasados</span>
-            <span className="text-[11px] text-muted bg-surface2 rounded-full px-2 py-0.5">
-              {overdue.length} de {clients.length}
-            </span>
+            <span className="text-[11px] text-muted bg-surface2 rounded-full px-2 py-0.5">{overdue.length} de {clients.length}</span>
           </div>
-          <div className="px-4 py-2 text-[11px] text-faint italic border-b border-border">
-            Clique em um cliente para abrir a negociacao da IA
-          </div>
+          <div className="px-4 py-2 text-[11px] text-faint italic border-b border-border">Toque em um cliente para abrir a negociacao</div>
           <ClientTable clients={overdue} />
         </div>
 
         <div className="card overflow-hidden">
-          <div className="px-4 py-3 border-b border-border">
-            <span className="text-[13px] font-medium">Atividade da IA</span>
-          </div>
+          <div className="px-4 py-3 border-b border-border"><span className="text-[13px] font-medium">Atividade da IA</span></div>
           <div className="divide-y divide-border">
             {activity.map((a, i) => (
               <div key={i} className="flex gap-2.5 px-4 py-2.5">
@@ -85,20 +77,14 @@ export default async function DashboardPage() {
       </div>
 
       <div className="card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
           <span className="text-[13px] font-medium">Recuperacao esta semana</span>
-          <div className="flex gap-4 text-[11px] text-muted">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-0.5 bg-success inline-block rounded" />Recuperado
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-0.5 bg-danger inline-block rounded" />Em aberto
-            </span>
+          <div className="flex gap-3 sm:gap-4 text-[11px] text-muted">
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-0.5 bg-success inline-block rounded" />Recuperado</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-0.5 bg-danger inline-block rounded" />Em aberto</span>
           </div>
         </div>
-        <div className="p-3">
-          <RecoveryChart />
-        </div>
+        <div className="p-3"><RecoveryChart /></div>
       </div>
     </div>
   );

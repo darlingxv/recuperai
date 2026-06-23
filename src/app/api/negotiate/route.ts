@@ -5,8 +5,7 @@ import { sendWhatsApp } from "@/lib/whatsapp";
 import { Message } from "@/lib/types";
 
 // POST /api/negotiate
-// Body: { clientId: string, message: string }
-// Registra a mensagem do cliente, roda a IA, registra e "envia" a resposta.
+// Body: { clientId, message }
 export async function POST(req: NextRequest) {
   try {
     const { clientId, message } = await req.json();
@@ -15,46 +14,75 @@ export async function POST(req: NextRequest) {
     }
 
     const client = await getClient(clientId);
-    if (!client) {
-      return NextResponse.json({ error: "Cliente nao encontrado" }, { status: 404 });
-    }
+    if (!client) return NextResponse.json({ error: "Cliente nao encontrado" }, { status: 404 });
     const rules = await getRules();
 
-    // 1) registra a mensagem recebida do cliente
-    const incoming: Message = {
+    // 1) registra a mensagem do cliente
+    client.messages.push({
       id: "m" + Date.now(),
       sender: "cliente",
       text: message,
       at: new Date().toISOString(),
       channel: "whatsapp",
-    };
-    client.messages.push(incoming);
+    });
 
     // 2) roda o motor de negociacao
     const result = await negotiate(client, rules, message);
 
     // 3) registra a resposta da IA
-    const aiMessage: Message = {
+    client.messages.push({
       id: "m" + (Date.now() + 1),
       sender: "ai",
       text: result.reply,
       at: new Date().toISOString(),
       channel: "whatsapp",
-    };
-    client.messages.push(aiMessage);
+    });
 
-    // 4) atualiza estado do cliente
+    // 4) atualiza o estado da negociacao
     client.lastOffer = result.offer;
     client.paymentProbability = result.paymentProbability;
-    if (result.offer.type !== "nenhuma" && result.offer.type !== "pix_imediato") {
-      client.status = "negociando";
-    }
-    await updateClient(client);
+    client.rejectionCount = result.rejectionCount;
+    client.triedOffers = result.triedOffers;
 
-    // 5) envia pelo WhatsApp (ou apenas registra, se sem credenciais)
+    if (result.agreementReached) client.status = "acordo";
+    else if (result.escalate) client.status = "escalado";
+    else client.status = "negociando";
+
+    // 5) envia a resposta ao cliente por WhatsApp (ou registra em log)
     const delivery = await sendWhatsApp(client.phone, result.reply);
 
-    return NextResponse.json({ result, delivery, client });
+    // 6) ESCALACAO: avisa o responsavel
+    let escalation = null;
+    if (result.escalate) {
+      const resumo =
+        `🔔 Cobranca escalada — ${rules.companyName}\n\n` +
+        `Cliente: ${client.name}\n` +
+        `Contrato: ${client.company}\n` +
+        `Valor: R$ ${client.debt.toFixed(2)}\n` +
+        `Atraso: ${client.daysOverdue} dias\n` +
+        `Telefone: ${client.phone}\n\n` +
+        `Motivo: ${result.escalationReason || "Cliente nao aceitou as opcoes oferecidas."}\n\n` +
+        `A IA tentou negociar mas precisa de voce para conduzir este caso.`;
+
+      const sysMsg: Message = {
+        id: "m" + (Date.now() + 2),
+        sender: "sistema",
+        text: `Negociacao encaminhada para ${rules.responsibleName}.`,
+        at: new Date().toISOString(),
+        channel: "sistema",
+      };
+      client.messages.push(sysMsg);
+
+      if (rules.responsiblePhone) {
+        escalation = await sendWhatsApp(rules.responsiblePhone, resumo);
+      } else {
+        escalation = { sent: false, mode: "log" as const, detail: "Sem telefone do responsavel configurado (Regras)." };
+        console.log("[Escalacao:log]", resumo);
+      }
+    }
+
+    await updateClient(client);
+    return NextResponse.json({ result, delivery, escalation, client });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Erro ao processar negociacao" }, { status: 500 });

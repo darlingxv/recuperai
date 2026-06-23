@@ -60,6 +60,8 @@ export async function POST(req: NextRequest) {
           history: [],
           messages: [],
           lastOffer: null,
+          rejectionCount: 0,
+          triedOffers: [],
         };
         client.paymentProbability = estimateProbability(client);
         return client;

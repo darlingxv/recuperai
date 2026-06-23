@@ -1,27 +1,24 @@
 // Tipos centrais do dominio do Recuper.ai
 
 export type RiskLevel = "baixo" | "medio" | "alto";
-export type ClientStatus = "em_aberto" | "negociando" | "acordo" | "pago";
+export type ClientStatus = "em_aberto" | "negociando" | "acordo" | "pago" | "escalado";
 export type MessageSender = "ai" | "cliente" | "sistema";
 
-// Um pagamento no historico do cliente (usado para estimar risco/probabilidade)
 export interface PaymentRecord {
-  dueDate: string; // ISO date
-  paidDate: string | null; // ISO date ou null se nao pago
+  dueDate: string;
+  paidDate: string | null;
   amount: number;
-  daysLate: number; // 0 = em dia, negativo = adiantado
+  daysLate: number;
 }
 
-// Uma mensagem trocada na negociacao
 export interface Message {
   id: string;
   sender: MessageSender;
   text: string;
-  at: string; // ISO datetime
+  at: string;
   channel: "whatsapp" | "sistema";
 }
 
-// Oferta que a IA pode propor, sempre dentro das regras da empresa
 export interface NegotiationOffer {
   type: "parcelamento" | "desconto" | "novo_vencimento" | "pix_imediato" | "nenhuma";
   installments?: number;
@@ -33,42 +30,52 @@ export interface NegotiationOffer {
 export interface Client {
   id: string;
   name: string;
-  company: string; // nome do negocio/contrato
+  company: string;
   phone: string;
   debt: number;
-  dueDate: string; // ISO date
+  dueDate: string;
   daysOverdue: number;
   status: ClientStatus;
   risk: RiskLevel;
-  paymentProbability: number; // 0-100, estimada pela IA
+  paymentProbability: number;
   history: PaymentRecord[];
   messages: Message[];
   lastOffer: NegotiationOffer | null;
+  rejectionCount: number; // quantas ofertas o cliente recusou seguidas
+  triedOffers: string[]; // tipos de oferta ja tentados nesta negociacao
 }
 
-// Regras configuraveis por empresa — limites que a IA NUNCA ultrapassa
 export interface CompanyRules {
   companyName: string;
   maxInstallments: number;
   maxDiscountPercent: number;
   allowDueDateChange: boolean;
-  minAmountForDiscount: number; // desconto so liberado acima deste valor
+  minAmountForDiscount: number;
   tone: "amigavel" | "neutro" | "firme";
-  contactHourStart: number; // 8 = 08h (CDC: cobranca em horario comercial)
-  contactHourEnd: number; // 20 = 20h
+  contactHourStart: number;
+  contactHourEnd: number;
+  // Responsavel que a IA aciona quando o cliente recusa tudo
+  responsibleName: string;
+  responsiblePhone: string;
+  maxRejectionsBeforeEscalation: number; // padrao 2
 }
 
-// Resposta estruturada do motor de negociacao
 export interface NegotiationResult {
-  reply: string; // o que sera enviado ao cliente
+  reply: string;
   offer: NegotiationOffer;
-  reasoning: ReasoningStep[]; // por que a IA decidiu assim (transparencia)
-  paymentProbability: number; // 0-100
-  mode: "claude" | "demo"; // de onde veio a resposta
+  reasoning: ReasoningStep[];
+  paymentProbability: number;
+  mode: "claude" | "demo";
+  // Controle de fluxo da negociacao
+  escalate: boolean; // true => acionar o responsavel
+  escalationReason?: string;
+  agreementReached: boolean; // true => cliente aceitou uma oferta
+  rejectionCount: number; // atualizado apos esta rodada
+  triedOffers: string[];
 }
 
 export interface ReasoningStep {
-  icon: string; // nome do icone (apenas referencia)
+  icon: string;
   text: string;
 }
 
@@ -78,4 +85,5 @@ export interface DashboardStats {
   recoveryRate: number;
   overdueCount: number;
   activeNegotiations: number;
+  escalatedCount: number;
 }

@@ -1,10 +1,15 @@
-// Camada de dados otimizada para Vercel
-// Usa Vercel KV em produção, arquivo local em desenvolvimento
-
 import { promises as fs } from "fs";
 import path from "path";
 import { Client, CompanyRules, DashboardStats, Message } from "./types";
 import { seedClients, defaultRules } from "./seed-data";
+
+// ============================================================
+// Camada de dados.
+// Em desenvolvimento: arquivo .data/db.json.
+// Em producao (Vercel): memoria (o file system e somente leitura).
+// A interface e a unica coisa que o resto do app conhece — para
+// persistencia real, reimplemente usando Postgres/Supabase.
+// ============================================================
 
 interface DB {
   rules: CompanyRules;
@@ -14,31 +19,27 @@ interface DB {
 const isProduction = process.env.NODE_ENV === "production";
 const DB_PATH = path.join(process.cwd(), ".data", "db.json");
 
-// Em Vercel, usa variável de ambiente. Em dev, usa arquivo.
 let inMemoryDb: DB | null = null;
 
-async function ensureDb(): Promise<DB> {
-  if (inMemoryDb) return inMemoryDb;
+function freshDb(): DB {
+  return { rules: { ...defaultRules }, clients: JSON.parse(JSON.stringify(seedClients)) };
+}
 
+async function ensureDb(): Promise<DB> {
   if (isProduction) {
-    // Em produção (Vercel), carrega da memória ou inicializa
-    if (!inMemoryDb) {
-      inMemoryDb = { rules: defaultRules, clients: seedClients };
-    }
+    if (!inMemoryDb) inMemoryDb = freshDb();
     return inMemoryDb;
   }
-
-  // Em desenvolvimento, usa arquivo
+  if (inMemoryDb) return inMemoryDb;
   try {
     const raw = await fs.readFile(DB_PATH, "utf-8");
     return JSON.parse(raw) as DB;
   } catch {
-    const fresh: DB = { rules: defaultRules, clients: seedClients };
+    const fresh = freshDb();
     try {
       await fs.mkdir(path.dirname(DB_PATH), { recursive: true });
       await fs.writeFile(DB_PATH, JSON.stringify(fresh, null, 2));
-    } catch (err) {
-      console.warn("Não conseguiu criar .data/db.json, usando memória:", err);
+    } catch {
       inMemoryDb = fresh;
     }
     return fresh;
@@ -47,16 +48,13 @@ async function ensureDb(): Promise<DB> {
 
 async function write(db: DB): Promise<void> {
   if (isProduction) {
-    // Em Vercel, só guarda na memória (não persiste entre reloads)
     inMemoryDb = db;
     return;
   }
-
   try {
     await fs.mkdir(path.dirname(DB_PATH), { recursive: true });
     await fs.writeFile(DB_PATH, JSON.stringify(db, null, 2));
-  } catch (err) {
-    console.warn("Não conseguiu salvar no arquivo, usando memória:", err);
+  } catch {
     inMemoryDb = db;
   }
 }
@@ -99,6 +97,13 @@ export async function addMessage(clientId: string, message: Message): Promise<Cl
   return updateClient(client);
 }
 
+export async function addClient(client: Client): Promise<Client> {
+  const db = await ensureDb();
+  db.clients.unshift(client);
+  await write(db);
+  return client;
+}
+
 export async function addClients(clients: Client[]): Promise<number> {
   const db = await ensureDb();
   const existingIds = new Set(db.clients.map((c) => c.id));
@@ -109,8 +114,8 @@ export async function addClients(clients: Client[]): Promise<number> {
 }
 
 export async function resetDb(): Promise<void> {
-  const db: DB = { rules: defaultRules, clients: seedClients };
-  await write(db);
+  inMemoryDb = null;
+  await write(freshDb());
 }
 
 export async function getStats(): Promise<DashboardStats> {
@@ -121,6 +126,7 @@ export async function getStats(): Promise<DashboardStats> {
   const recoveredThisMonth = paid.reduce((s, c) => s + c.debt, 0) + 31200;
   const overdueCount = clients.filter((c) => c.daysOverdue > 0 && c.status !== "pago").length;
   const activeNegotiations = clients.filter((c) => c.status === "negociando").length;
+  const escalatedCount = clients.filter((c) => c.status === "escalado").length;
   const recoveryRate = 67;
   return {
     totalOutstanding,
@@ -128,5 +134,6 @@ export async function getStats(): Promise<DashboardStats> {
     recoveryRate,
     overdueCount,
     activeNegotiations,
+    escalatedCount,
   };
 }
