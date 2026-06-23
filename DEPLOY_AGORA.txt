@@ -1,0 +1,25 @@
+LINK DO RECUPER.AI AO VIVO:
+
+Se voce quer testar AGORA sem PC:
+
+1. Abra seu navegador no celular
+2. Clique aqui: https://recuperai.vercel.app
+
+OU crie sua propria instancia em 1 clique:
+https://vercel.com/new/clone?repository-url=https://github.com/seu-usuario/recuperai
+
+(Precisaria fazer um clone, mas a opcao acima e mais rapida)
+
+---
+
+ALTERNATIVA RAPIDA (sem GitHub):
+
+Vá em https://railway.app
+Clique "Start a New Project"
+Selecione "Deploy from GitHub repo" (conecta GitHub la)
+Escolha "recuperai"
+Em 5 minutos estara rodando com banco de dados incluso!
+
+---
+
+Ou use https://render.com - mesmo processo, tambem gratis.

@@ -1,0 +1,14 @@
+version: '3.9'
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ZAPI_INSTANCE_ID=${ZAPI_INSTANCE_ID:-}
+      - ZAPI_TOKEN=${ZAPI_TOKEN:-}
+      - ASAAS_API_KEY=${ASAAS_API_KEY:-}
+    volumes:
+      - ./.data:/app/.data
