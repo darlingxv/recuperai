@@ -52,15 +52,15 @@ export default function AddClient() {
           <div className="absolute inset-0 bg-black/50" />
           <div className="relative w-full sm:max-w-md bg-surface border-t sm:border border-border rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="text-[15px] font-medium mb-1">Adicionar cliente</div>
-            <p className="text-[11px] text-muted mb-4">Adicione um numero para a IA cobrar. O telefone com DDD e pais (ex: +55 49 99999-9999).</p>
+            <p className="text-[11px] text-muted mb-4">Adicione um numero para a IA cobrar. Pode digitar de qualquer jeito: so DDD+numero, com ou sem espacos/parenteses. Nao precisa do +55.</p>
             <div className="space-y-3">
               <div>
                 <label className="text-[12px] text-muted mb-1 block">Nome *</label>
                 <input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Joao Silva" className={field} />
               </div>
               <div>
-                <label className="text-[12px] text-muted mb-1 block">WhatsApp *</label>
-                <input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+55 49 99999-9999" className={field} />
+                <label className="text-[12px] text-muted mb-1 block">WhatsApp * <span className="text-faint">(qualquer formato)</span></label>
+                <input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="49 99999-9999" className={field} />
               </div>
               <div>
                 <label className="text-[12px] text-muted mb-1 block">Contrato / servico</label>

@@ -9,6 +9,8 @@
 // A interface sendWhatsApp() abstrai o provedor.
 // ============================================================
 
+import { normalizePhoneBR } from "./phone";
+
 interface SendResult {
   sent: boolean;
   mode: "zapi" | "log";
@@ -26,7 +28,7 @@ export async function sendWhatsApp(phone: string, message: string): Promise<Send
   }
 
   const url = `https://api.z-api.io/instances/${instance}/token/${token}/send-text`;
-  const onlyDigits = phone.replace(/\D/g, "");
+  const onlyDigits = normalizePhoneBR(phone);
 
   try {
     const res = await fetch(url, {

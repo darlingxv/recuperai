@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getClients, getStats, addClient } from "@/lib/db";
 import { estimateProbability } from "@/lib/claude";
+import { prettyPhoneBR } from "@/lib/phone";
 import { Client, RiskLevel } from "@/lib/types";
 
 // GET /api/clients -> lista + estatisticas
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
       id: "cli_" + Date.now(),
       name,
       company: String(body.company || "Cobranca avulsa"),
-      phone,
+      phone: prettyPhoneBR(phone),
       debt,
       dueDate: dueDate.toISOString(),
       daysOverdue,

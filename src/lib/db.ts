@@ -1,14 +1,18 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { Redis } from "@upstash/redis";
 import { Client, CompanyRules, DashboardStats, Message } from "./types";
 import { seedClients, defaultRules } from "./seed-data";
 
 // ============================================================
-// Camada de dados.
-// Em desenvolvimento: arquivo .data/db.json.
-// Em producao (Vercel): memoria (o file system e somente leitura).
-// A interface e a unica coisa que o resto do app conhece — para
-// persistencia real, reimplemente usando Postgres/Supabase.
+// Camada de dados — 3 modos, escolhidos automaticamente:
+//
+// 1) Upstash Redis (Vercel KV)  -> se as variaveis KV_*/UPSTASH_* existirem.
+//    PERSISTE de verdade na nuvem. E o modo recomendado em producao.
+// 2) Arquivo .data/db.json       -> em desenvolvimento (npm run dev).
+// 3) Memoria                     -> fallback (some quando o servidor reinicia).
+//
+// Todo o resto do app so conhece esta interface.
 // ============================================================
 
 interface DB {
@@ -16,8 +20,14 @@ interface DB {
   clients: Client[];
 }
 
-const isProduction = process.env.NODE_ENV === "production";
+const KEY = "recuperai:db:v1";
 const DB_PATH = path.join(process.cwd(), ".data", "db.json");
+const isProduction = process.env.NODE_ENV === "production";
+
+const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+const useRedis = !!(redisUrl && redisToken);
+const redis = useRedis ? new Redis({ url: redisUrl as string, token: redisToken as string }) : null;
 
 let inMemoryDb: DB | null = null;
 
@@ -25,11 +35,27 @@ function freshDb(): DB {
   return { rules: { ...defaultRules }, clients: JSON.parse(JSON.stringify(seedClients)) };
 }
 
-async function ensureDb(): Promise<DB> {
+async function loadDb(): Promise<DB> {
+  // 1) Redis / KV
+  if (redis) {
+    try {
+      const data = await redis.get<DB>(KEY);
+      if (data && Array.isArray(data.clients) && data.rules) return data;
+      const fresh = freshDb();
+      await redis.set(KEY, fresh);
+      return fresh;
+    } catch (err) {
+      console.error("Erro lendo Redis, usando memoria nesta requisicao:", err);
+      if (!inMemoryDb) inMemoryDb = freshDb();
+      return inMemoryDb;
+    }
+  }
+  // 2) Memoria (producao sem KV)
   if (isProduction) {
     if (!inMemoryDb) inMemoryDb = freshDb();
     return inMemoryDb;
   }
+  // 3) Arquivo (dev)
   if (inMemoryDb) return inMemoryDb;
   try {
     const raw = await fs.readFile(DB_PATH, "utf-8");
@@ -46,7 +72,17 @@ async function ensureDb(): Promise<DB> {
   }
 }
 
-async function write(db: DB): Promise<void> {
+async function saveDb(db: DB): Promise<void> {
+  if (redis) {
+    try {
+      await redis.set(KEY, db);
+      return;
+    } catch (err) {
+      console.error("Erro salvando no Redis:", err);
+      inMemoryDb = db;
+      return;
+    }
+  }
   if (isProduction) {
     inMemoryDb = db;
     return;
@@ -60,62 +96,62 @@ async function write(db: DB): Promise<void> {
 }
 
 export async function getRules(): Promise<CompanyRules> {
-  const db = await ensureDb();
-  return db.rules;
+  return (await loadDb()).rules;
 }
 
 export async function saveRules(rules: CompanyRules): Promise<CompanyRules> {
-  const db = await ensureDb();
+  const db = await loadDb();
   db.rules = rules;
-  await write(db);
+  await saveDb(db);
   return rules;
 }
 
 export async function getClients(): Promise<Client[]> {
-  const db = await ensureDb();
-  return db.clients;
+  return (await loadDb()).clients;
 }
 
 export async function getClient(id: string): Promise<Client | null> {
-  const db = await ensureDb();
+  const db = await loadDb();
   return db.clients.find((c) => c.id === id) ?? null;
 }
 
 export async function updateClient(updated: Client): Promise<Client> {
-  const db = await ensureDb();
+  const db = await loadDb();
   const i = db.clients.findIndex((c) => c.id === updated.id);
   if (i === -1) throw new Error(`Cliente ${updated.id} nao encontrado`);
   db.clients[i] = updated;
-  await write(db);
+  await saveDb(db);
   return updated;
 }
 
 export async function addMessage(clientId: string, message: Message): Promise<Client> {
-  const client = await getClient(clientId);
+  const db = await loadDb();
+  const client = db.clients.find((c) => c.id === clientId);
   if (!client) throw new Error(`Cliente ${clientId} nao encontrado`);
   client.messages.push(message);
-  return updateClient(client);
+  await saveDb(db);
+  return client;
 }
 
 export async function addClient(client: Client): Promise<Client> {
-  const db = await ensureDb();
+  const db = await loadDb();
   db.clients.unshift(client);
-  await write(db);
+  await saveDb(db);
   return client;
 }
 
 export async function addClients(clients: Client[]): Promise<number> {
-  const db = await ensureDb();
+  const db = await loadDb();
   const existingIds = new Set(db.clients.map((c) => c.id));
   const toAdd = clients.filter((c) => !existingIds.has(c.id));
   db.clients.push(...toAdd);
-  await write(db);
+  await saveDb(db);
   return toAdd.length;
 }
 
 export async function resetDb(): Promise<void> {
   inMemoryDb = null;
-  await write(freshDb());
+  await saveDb(freshDb());
 }
 
 export async function getStats(): Promise<DashboardStats> {
@@ -127,11 +163,10 @@ export async function getStats(): Promise<DashboardStats> {
   const overdueCount = clients.filter((c) => c.daysOverdue > 0 && c.status !== "pago").length;
   const activeNegotiations = clients.filter((c) => c.status === "negociando").length;
   const escalatedCount = clients.filter((c) => c.status === "escalado").length;
-  const recoveryRate = 67;
   return {
     totalOutstanding,
     recoveredThisMonth,
-    recoveryRate,
+    recoveryRate: 67,
     overdueCount,
     activeNegotiations,
     escalatedCount,
