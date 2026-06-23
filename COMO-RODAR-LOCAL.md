@@ -41,5 +41,37 @@ Na tela "IA negociando" vai aparecer o selo verde **"IA real ativa"**.
 O arquivo **`.env.local`** já vem com as suas credenciais da Z-API.
 Para o WhatsApp enviar, a sua instância precisa estar **conectada** no painel da Z-API (QR code escaneado).
 
+## Receber mensagens REAIS dos clientes (conversa de mao dupla)
+
+Para o cliente responder no WhatsApp dele e a IA continuar a conversa sozinha,
+a Z-API precisa "avisar" o seu sistema quando chega mensagem. Isso e o **webhook**.
+
+O endereco do webhook e: **(seu endereco)/api/webhook/zapi**
+(ele tambem aparece na tela **Regras** do app)
+
+### Se estiver rodando no PC (localhost): use o ngrok
+O localhost so existe no seu PC, entao a Z-API nao alcanca. O ngrok cria um
+endereco publico temporario que aponta pro seu PC:
+
+1. Baixe o ngrok em https://ngrok.com/download e crie a conta gratis
+2. Com o app **rodando** (INICIAR-WINDOWS.bat aberto), abra OUTRA janela do
+   Prompt e rode:  `ngrok http 3000`
+3. Vai aparecer uma linha tipo  `Forwarding  https://abc123.ngrok-free.app -> ...`
+   Copie esse endereco `https://abc123.ngrok-free.app`
+4. O seu webhook fica: `https://abc123.ngrok-free.app/api/webhook/zapi`
+5. No painel da **Z-API**, em **Ao receber** (webhook de mensagem recebida),
+   cole esse endereco e salve.
+6. Mantenha o app E o ngrok abertos. Mande uma mensagem do seu outro celular
+   pro numero conectado na Z-API: ela vai aparecer no Recuper.ai e a IA responde.
+
+> O endereco do ngrok muda toda vez que voce reabre. Se reiniciar, gere de novo
+> e atualize na Z-API.
+
+### Para valer (sempre ligado): use a Vercel
+No PC, o webhook so funciona com o app e o ngrok abertos. Para funcionar 24h sem
+depender do seu PC, suba na Vercel e use o endereco
+`https://seu-projeto.vercel.app/api/webhook/zapi` (precisa configurar a chave de
+IA, as credenciais da Z-API e o banco Upstash nas variaveis de ambiente da Vercel).
+
 ## Parar o servidor
 Feche a janela preta (o .bat). Para rodar de novo, dois cliques no `.bat` outra vez.

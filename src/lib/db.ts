@@ -3,6 +3,7 @@ import path from "path";
 import { Redis } from "@upstash/redis";
 import { Client, CompanyRules, DashboardStats, Message } from "./types";
 import { seedClients, defaultRules } from "./seed-data";
+import { normalizePhoneBR } from "./phone";
 
 // ============================================================
 // Camada de dados — 3 modos, escolhidos automaticamente:
@@ -113,6 +114,14 @@ export async function getClients(): Promise<Client[]> {
 export async function getClient(id: string): Promise<Client | null> {
   const db = await loadDb();
   return db.clients.find((c) => c.id === id) ?? null;
+}
+
+// Busca um cliente pelo telefone, comparando so os digitos (qualquer formato)
+export async function getClientByPhone(phone: string): Promise<Client | null> {
+  const target = normalizePhoneBR(phone);
+  if (!target) return null;
+  const db = await loadDb();
+  return db.clients.find((c) => normalizePhoneBR(c.phone) === target) ?? null;
 }
 
 export async function updateClient(updated: Client): Promise<Client> {

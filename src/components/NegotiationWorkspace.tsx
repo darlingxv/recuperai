@@ -63,6 +63,21 @@ export default function NegotiationWorkspace({
     msgEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [selected?.messages.length, sending]);
 
+  // Atualiza as conversas a cada 5s para mostrar respostas reais que chegam pelo WhatsApp
+  useEffect(() => {
+    const id = setInterval(async () => {
+      if (sending || sendingReal) return;
+      try {
+        const res = await fetch("/api/clients");
+        const data = await res.json();
+        if (data?.clients) setClients(data.clients);
+      } catch {
+        /* ignora falhas de rede momentaneas */
+      }
+    }, 5000);
+    return () => clearInterval(id);
+  }, [sending, sendingReal]);
+
   function switchClient(id: string) {
     setSelectedId(id);
     setResult(null);
