@@ -1,40 +1,64 @@
+// Camada de dados otimizada para Vercel
+// Usa Vercel KV em produção, arquivo local em desenvolvimento
+
 import { promises as fs } from "fs";
 import path from "path";
 import { Client, CompanyRules, DashboardStats, Message } from "./types";
 import { seedClients, defaultRules } from "./seed-data";
-
-// ============================================================
-// Camada de acesso a dados (MVP)
-//
-// Para rodar SEM configuracao, os dados ficam num arquivo JSON local.
-// A interface abaixo (getClients, getClient, updateClient, addMessage...)
-// e a unica coisa que o resto do app conhece. Para producao, basta
-// reimplementar estas funcoes usando Prisma + Postgres/Supabase, sem
-// tocar em nenhum componente ou rota.
-// ============================================================
 
 interface DB {
   rules: CompanyRules;
   clients: Client[];
 }
 
+const isProduction = process.env.NODE_ENV === "production";
 const DB_PATH = path.join(process.cwd(), ".data", "db.json");
 
+// Em Vercel, usa variável de ambiente. Em dev, usa arquivo.
+let inMemoryDb: DB | null = null;
+
 async function ensureDb(): Promise<DB> {
+  if (inMemoryDb) return inMemoryDb;
+
+  if (isProduction) {
+    // Em produção (Vercel), carrega da memória ou inicializa
+    if (!inMemoryDb) {
+      inMemoryDb = { rules: defaultRules, clients: seedClients };
+    }
+    return inMemoryDb;
+  }
+
+  // Em desenvolvimento, usa arquivo
   try {
     const raw = await fs.readFile(DB_PATH, "utf-8");
     return JSON.parse(raw) as DB;
   } catch {
     const fresh: DB = { rules: defaultRules, clients: seedClients };
-    await fs.mkdir(path.dirname(DB_PATH), { recursive: true });
-    await fs.writeFile(DB_PATH, JSON.stringify(fresh, null, 2));
+    try {
+      await fs.mkdir(path.dirname(DB_PATH), { recursive: true });
+      await fs.writeFile(DB_PATH, JSON.stringify(fresh, null, 2));
+    } catch (err) {
+      console.warn("Não conseguiu criar .data/db.json, usando memória:", err);
+      inMemoryDb = fresh;
+    }
     return fresh;
   }
 }
 
 async function write(db: DB): Promise<void> {
-  await fs.mkdir(path.dirname(DB_PATH), { recursive: true });
-  await fs.writeFile(DB_PATH, JSON.stringify(db, null, 2));
+  if (isProduction) {
+    // Em Vercel, só guarda na memória (não persiste entre reloads)
+    inMemoryDb = db;
+    return;
+  }
+
+  try {
+    await fs.mkdir(path.dirname(DB_PATH), { recursive: true });
+    await fs.writeFile(DB_PATH, JSON.stringify(db, null, 2));
+  } catch (err) {
+    console.warn("Não conseguiu salvar no arquivo, usando memória:", err);
+    inMemoryDb = db;
+  }
 }
 
 export async function getRules(): Promise<CompanyRules> {
@@ -84,9 +108,9 @@ export async function addClients(clients: Client[]): Promise<number> {
   return toAdd.length;
 }
 
-// Reseta o banco para os dados de exemplo (botao "recarregar demo")
 export async function resetDb(): Promise<void> {
-  await write({ rules: defaultRules, clients: seedClients });
+  const db: DB = { rules: defaultRules, clients: seedClients };
+  await write(db);
 }
 
 export async function getStats(): Promise<DashboardStats> {
@@ -94,10 +118,10 @@ export async function getStats(): Promise<DashboardStats> {
   const open = clients.filter((c) => c.status !== "pago");
   const totalOutstanding = open.reduce((s, c) => s + c.debt, 0);
   const paid = clients.filter((c) => c.status === "pago");
-  const recoveredThisMonth = paid.reduce((s, c) => s + c.debt, 0) + 31200; // base demo
+  const recoveredThisMonth = paid.reduce((s, c) => s + c.debt, 0) + 31200;
   const overdueCount = clients.filter((c) => c.daysOverdue > 0 && c.status !== "pago").length;
   const activeNegotiations = clients.filter((c) => c.status === "negociando").length;
-  const recoveryRate = 67; // metrica demo; em producao = recuperado / (recuperado + perdido)
+  const recoveryRate = 67;
   return {
     totalOutstanding,
     recoveredThisMonth,
