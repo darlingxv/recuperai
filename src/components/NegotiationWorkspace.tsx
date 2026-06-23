@@ -114,8 +114,14 @@ export default function NegotiationWorkspace({
       const data = await res.json();
       if (res.ok) {
         setClients((cs) => cs.map((c) => (c.id === data.client.id ? data.client : c)));
-        const ok = data.delivery?.mode === "zapi" && data.delivery?.sent;
-        setBanner({ text: ok ? "1a cobranca enviada pelo WhatsApp ✓" : "Mensagem registrada (modo log). Configure o Z-API nas Regras para enviar de verdade.", ok });
+        const dv = data.delivery;
+        if (dv?.mode === "zapi" && dv?.sent) {
+          setBanner({ text: "1a cobranca enviada pelo WhatsApp ✓", ok: true });
+        } else if (dv?.mode === "zapi") {
+          setBanner({ text: "WhatsApp nao enviou: " + (dv.detail || "verifique se a instancia esta conectada na Z-API"), ok: false });
+        } else {
+          setBanner({ text: "Modo log (mensagem so registrada). Configure as variaveis ZAPI_* na Vercel para enviar de verdade.", ok: false });
+        }
       } else {
         setBanner({ text: data.error || "Erro ao enviar", ok: false });
       }
