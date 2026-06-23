@@ -398,30 +398,87 @@ function normalizeOffer(
   return o;
 }
 
-async function negotiateWithClaude(
+// ============================================================
+// PROVEDORES DE IA
+// O sistema escolhe automaticamente conforme a chave configurada:
+//   1) ANTHROPIC_API_KEY  -> Claude (melhor qualidade, pago barato)
+//   2) GEMINI_API_KEY     -> Google Gemini (gratis)
+//   3) GROQ_API_KEY       -> Groq / Llama (gratis, sem cartao)
+//   nenhuma               -> modo demo (respostas por regras)
+// ============================================================
+
+type AIProvider = "anthropic" | "gemini" | "groq";
+
+function pickProvider(): AIProvider | null {
+  if (process.env.ANTHROPIC_API_KEY) return "anthropic";
+  if (process.env.GEMINI_API_KEY) return "gemini";
+  if (process.env.GROQ_API_KEY) return "groq";
+  return null;
+}
+
+export function aiIsConfigured(): boolean {
+  return pickProvider() !== null;
+}
+
+type ConvoMsg = { role: "user" | "assistant"; content: string };
+
+function buildConvo(client: Client, incomingMessage: string): ConvoMsg[] {
+  const history: ConvoMsg[] = client.messages
+    .filter((m) => m.sender !== "sistema")
+    .map((m) => ({ role: m.sender === "ai" ? "assistant" : "user", content: m.text }));
+  history.push({ role: "user", content: incomingMessage });
+  return history;
+}
+
+// Cada chamada devolve o texto cru do modelo (que deve ser um JSON)
+async function callAnthropic(system: string, convo: ConvoMsg[]): Promise<string> {
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const response = await anthropic.messages.create({ model: MODEL, max_tokens: 1024, system, messages: convo });
+  const block = response.content.find((b) => b.type === "text");
+  return block && "text" in block ? block.text : "";
+}
+
+async function callGroq(system: string, convo: ConvoMsg[]): Promise<string> {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
+    body: JSON.stringify({
+      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+      messages: [{ role: "system", content: system }, ...convo],
+      temperature: 0.6,
+      response_format: { type: "json_object" },
+    }),
+  });
+  if (!res.ok) throw new Error(`Groq ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content ?? "";
+}
+
+async function callGemini(system: string, convo: ConvoMsg[]): Promise<string> {
+  const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+  const contents = convo.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: system }] },
+      contents,
+      generationConfig: { responseMimeType: "application/json", temperature: 0.6 },
+    }),
+  });
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+}
+
+function parseAIResponse(
+  raw: string,
   client: Client,
   rules: CompanyRules,
-  incomingMessage: string
-): Promise<NegotiationResult> {
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const history = client.messages
-    .filter((m) => m.sender !== "sistema")
-    .map((m) => ({
-      role: (m.sender === "ai" ? "assistant" : "user") as "assistant" | "user",
-      content: m.text,
-    }));
-  const messages = [...history, { role: "user" as const, content: incomingMessage }];
-
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    system: buildSystemPrompt(client, rules),
-    messages,
-  });
-
-  const textBlock = response.content.find((b) => b.type === "text");
-  const raw = textBlock && "text" in textBlock ? textBlock.text : "";
-  const cleaned = raw.replace(/```json/g, "").replace(/```/g, "").trim();
+  mode: NegotiationResult["mode"]
+): NegotiationResult {
+  const cleaned = (raw || "").replace(/```json/g, "").replace(/```/g, "").trim();
   const parsed = JSON.parse(cleaned);
 
   const offer = normalizeOffer(parsed.offer, rules, client);
@@ -439,7 +496,7 @@ async function negotiateWithClaude(
     offer,
     reasoning: Array.isArray(parsed.reasoning) ? parsed.reasoning : [],
     paymentProbability: clamp(parsed.paymentProbability ?? estimateProbability(client)),
-    mode: "claude",
+    mode,
     escalate,
     escalationReason: parsed.escalationReason || undefined,
     agreementReached,
@@ -448,16 +505,33 @@ async function negotiateWithClaude(
   };
 }
 
+async function negotiateWithAI(
+  provider: AIProvider,
+  client: Client,
+  rules: CompanyRules,
+  incomingMessage: string
+): Promise<NegotiationResult> {
+  const system = buildSystemPrompt(client, rules);
+  const convo = buildConvo(client, incomingMessage);
+  let raw = "";
+  if (provider === "anthropic") raw = await callAnthropic(system, convo);
+  else if (provider === "gemini") raw = await callGemini(system, convo);
+  else raw = await callGroq(system, convo);
+  const mode: NegotiationResult["mode"] = provider === "anthropic" ? "claude" : provider;
+  return parseAIResponse(raw, client, rules, mode);
+}
+
 export async function negotiate(
   client: Client,
   rules: CompanyRules,
   incomingMessage: string
 ): Promise<NegotiationResult> {
-  if (process.env.ANTHROPIC_API_KEY) {
+  const provider = pickProvider();
+  if (provider) {
     try {
-      return await negotiateWithClaude(client, rules, incomingMessage);
+      return await negotiateWithAI(provider, client, rules, incomingMessage);
     } catch (err) {
-      console.error("Falha na chamada ao Claude, usando modo demo:", err);
+      console.error(`Falha na IA (${provider}), usando modo demo:`, err);
       return negotiateDemo(client, rules, incomingMessage);
     }
   }

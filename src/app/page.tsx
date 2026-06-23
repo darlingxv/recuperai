@@ -4,6 +4,7 @@ import StatCard from "@/components/StatCard";
 import RecoveryChart from "@/components/RecoveryChart";
 import ClientTable from "@/components/ClientTable";
 import DemoControls from "@/components/DemoControls";
+import { aiIsConfigured } from "@/lib/claude";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ function FeedIcon({ kind }: { kind: string }) {
 
 export default async function DashboardPage() {
   const [stats, clients] = await Promise.all([getStats(), getClients()]);
-  const isDemo = !process.env.ANTHROPIC_API_KEY;
+  const isDemo = !aiIsConfigured();
   const overdue = clients.filter((c) => c.status !== "pago").slice(0, 6);
 
   return (

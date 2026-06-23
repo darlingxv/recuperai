@@ -65,7 +65,7 @@ export interface NegotiationResult {
   offer: NegotiationOffer;
   reasoning: ReasoningStep[];
   paymentProbability: number;
-  mode: "claude" | "demo";
+  mode: "claude" | "demo" | "groq" | "gemini";
   // Controle de fluxo da negociacao
   escalate: boolean; // true => acionar o responsavel
   escalationReason?: string;
