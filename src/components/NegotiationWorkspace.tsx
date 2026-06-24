@@ -105,8 +105,18 @@ export default function NegotiationWorkspace({
       if (res.ok) {
         setClients((cs) => cs.map((c) => (c.id === data.client.id ? data.client : c)));
         setResult(data.result);
-        if (data.result.escalate) {
-          setBanner({ text: data.escalation?.mode === "zapi" ? `Responsavel (${responsibleName}) avisado pelo WhatsApp` : `Escalado para ${responsibleName} (configure o WhatsApp do responsavel nas Regras)`, ok: data.escalation?.mode === "zapi" });
+        const dv = data.delivery;
+        if (dv && dv.mode === "zapi" && !dv.sent) {
+          setBanner({ text: "WhatsApp NAO enviou → " + (dv.detail || "erro desconhecido"), ok: false });
+        } else if (data.result.escalate) {
+          setBanner({
+            text: data.escalation?.mode === "zapi" ? `Responsavel (${responsibleName}) avisado pelo WhatsApp` : `Escalado para ${responsibleName} (configure o WhatsApp do responsavel nas Regras)`,
+            ok: data.escalation?.mode === "zapi",
+          });
+        } else if (dv && dv.sent) {
+          setBanner({ text: "Resposta enviada no WhatsApp ✓", ok: true });
+        } else if (dv && dv.mode === "log") {
+          setBanner({ text: "Modo log: credenciais Z-API ausentes (nao enviou de verdade)", ok: false });
         }
       }
     } catch (e) {

@@ -1,5 +1,6 @@
 import { getRules } from "@/lib/db";
 import RulesForm from "@/components/RulesForm";
+import WhatsAppTest from "@/components/WhatsAppTest";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export default async function SettingsPage() {
             endereco publico e troque &quot;SEU-SITE&quot; por ele (passo a passo no guia).
           </p>
         )}
+        <WhatsAppTest />
       </div>
 
       <RulesForm initial={rules} />
