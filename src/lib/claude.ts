@@ -409,15 +409,18 @@ function normalizeOffer(
 
 type AIProvider = "anthropic" | "gemini" | "groq";
 
-function pickProvider(): AIProvider | null {
-  if (process.env.ANTHROPIC_API_KEY) return "anthropic";
-  if (process.env.GEMINI_API_KEY) return "gemini";
-  if (process.env.GROQ_API_KEY) return "groq";
-  return null;
+// Ordem de preferencia: Anthropic (melhor) > Groq (gratis, confiavel) > Gemini.
+// Retorna TODAS as IAs configuradas, para tentar uma e cair na proxima se falhar.
+function configuredProviders(): AIProvider[] {
+  const list: AIProvider[] = [];
+  if (process.env.ANTHROPIC_API_KEY) list.push("anthropic");
+  if (process.env.GROQ_API_KEY) list.push("groq");
+  if (process.env.GEMINI_API_KEY) list.push("gemini");
+  return list;
 }
 
 export function aiIsConfigured(): boolean {
-  return pickProvider() !== null;
+  return configuredProviders().length > 0;
 }
 
 type ConvoMsg = { role: "user" | "assistant"; content: string };
@@ -526,13 +529,13 @@ export async function negotiate(
   rules: CompanyRules,
   incomingMessage: string
 ): Promise<NegotiationResult> {
-  const provider = pickProvider();
-  if (provider) {
+  const providers = configuredProviders();
+  for (const provider of providers) {
     try {
       return await negotiateWithAI(provider, client, rules, incomingMessage);
     } catch (err) {
-      console.error(`Falha na IA (${provider}), usando modo demo:`, err);
-      return negotiateDemo(client, rules, incomingMessage);
+      console.error(`Falha na IA (${provider}), tentando a proxima opcao...`, err);
+      // tenta o proximo provedor; se acabarem, cai no modo demo
     }
   }
   return negotiateDemo(client, rules, incomingMessage);
