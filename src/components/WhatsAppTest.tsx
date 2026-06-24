@@ -3,12 +3,10 @@
 import { useState } from "react";
 
 export default function WhatsAppTest() {
-  // teste de conexao
   const [loadingConn, setLoadingConn] = useState(false);
   const [connMsg, setConnMsg] = useState<string | null>(null);
   const [connOk, setConnOk] = useState(false);
 
-  // teste de envio
   const [phone, setPhone] = useState("");
   const [sending, setSending] = useState(false);
   const [sendMsg, setSendMsg] = useState<string | null>(null);
@@ -20,25 +18,23 @@ export default function WhatsAppTest() {
     try {
       const res = await fetch("/api/whatsapp-status");
       const d = await res.json();
+      const prov = d.provider === "evolution" ? "Evolution" : d.provider === "zapi" ? "Z-API" : "WhatsApp";
       if (d.configured === false) {
         setConnOk(false);
         setConnMsg(d.message);
       } else if (d.error) {
         setConnOk(false);
-        setConnMsg("Erro de conexao: " + d.error);
+        setConnMsg(`Erro ao falar com a ${prov}: ${d.error}`);
+      } else if (d.connected) {
+        setConnOk(true);
+        setConnMsg(`${prov} CONECTADO ✓ — pode enviar. Se ainda nao envia para outros, teste abaixo.`);
       } else {
-        const raw = d.raw;
-        const connected = raw && typeof raw === "object" && (raw.connected === true || raw.smartphoneConnected === true);
-        if (connected) {
-          setConnOk(true);
-          setConnMsg("WhatsApp CONECTADO ✓ — pode enviar. Se ainda nao envia, teste abaixo.");
-        } else if (d.httpStatus === 403 || (typeof raw === "string" && /token/i.test(raw))) {
-          setConnOk(false);
-          setConnMsg("Problema com o Client-Token. Confira o 'Token de seguranca da conta' na Z-API. Resposta: " + (typeof raw === "object" ? JSON.stringify(raw) : String(raw)));
-        } else {
-          setConnOk(false);
-          setConnMsg("WhatsApp NAO conectado. Abra o painel da Z-API e escaneie o QR Code com o celular. Resposta: " + (typeof raw === "object" ? JSON.stringify(raw) : String(raw)));
-        }
+        setConnOk(false);
+        const extra =
+          d.provider === "evolution"
+            ? `Estado da instancia: "${d.state || "?"}". Conecte a instancia (escaneie o QR no Evolution Manager).`
+            : `Resposta: ${typeof d.raw === "object" ? JSON.stringify(d.raw) : String(d.raw)}. Escaneie o QR ou confira o Client-Token.`;
+        setConnMsg(`${prov} NAO conectado. ${extra}`);
       }
     } catch {
       setConnOk(false);
@@ -92,7 +88,7 @@ export default function WhatsAppTest() {
       </div>
 
       <div>
-        <div className="text-[12px] text-muted mb-1.5">2) Enviar uma mensagem de teste para um numero seu:</div>
+        <div className="text-[12px] text-muted mb-1.5">2) Enviar uma mensagem de teste para um numero:</div>
         <div className="flex gap-2">
           <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="49 99999-9999" className={field} />
           <button onClick={testSend} disabled={sending} className="text-[13px] text-white bg-brand rounded-lg px-4 disabled:opacity-50">
