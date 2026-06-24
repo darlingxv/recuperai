@@ -10,6 +10,9 @@ services:
       - "8080:8080"
     environment:
       SERVER_URL: http://localhost:8080
+      # Versao do WhatsApp Web (corrige o QR Code que nao gera).
+      # Se um dia parar de gerar de novo, atualize este numero.
+      CONFIG_SESSION_PHONE_VERSION: "2.3000.1023204200"
       # >>> TROQUE por uma chave secreta sua (sera o EVOLUTION_API_KEY no Recuper.ai) <<<
       AUTHENTICATION_API_KEY: troque-esta-chave-super-secreta-123
       DEL_INSTANCE: "false"

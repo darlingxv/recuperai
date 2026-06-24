@@ -50,5 +50,8 @@ Agora teste: em Regras, use "Enviar mensagem de teste" para outro numero
 ## Dicas
 - Parar a Evolution:  docker compose down   (os dados ficam salvos)
 - Ver logs:           docker compose logs -f evolution-api
+- QR Code nao gera? Ja deixamos a variavel CONFIG_SESSION_PHONE_VERSION no
+  docker-compose.yml (versao do WhatsApp Web). Se um dia parar de novo, atualize
+  esse numero para uma versao recente e rode "docker compose down" e "up -d".
 - Documentacao oficial: https://doc.evolution-api.com/v2/en/install/docker
 - Se a imagem :v2.1.1 der erro, troque por :latest no docker-compose.yml
