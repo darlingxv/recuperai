@@ -200,7 +200,7 @@ export default function NegotiationWorkspace({
   );
 
   const ChatBody = (
-    <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 space-y-3">
+    <div className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-4 space-y-3">
       {escalated && (
         <div className="bg-warning/10 border border-warning/30 rounded-lg px-3 py-2 flex items-start gap-2">
           <Icon name="user" className="w-4 h-4 text-warning shrink-0 mt-0.5" />
@@ -302,14 +302,14 @@ export default function NegotiationWorkspace({
   return (
     <>
       {/* DESKTOP: 3 colunas */}
-      <div className="hidden md:grid md:grid-cols-[210px_1fr_260px] h-[calc(100vh-110px)] card overflow-hidden">
+      <div className="hidden md:grid md:grid-cols-[210px_1fr_260px] h-[calc(100dvh-110px)] card overflow-hidden">
         <div className="border-r border-border">{ClientList}</div>
         <div className="flex flex-col min-w-0">{ChatHeader}{ChatBody}{ChatFooter}</div>
         <div className="border-l border-border overflow-y-auto p-3.5">{ReasoningInner}</div>
       </div>
 
       {/* MOBILE: lista OU chat */}
-      <div className="md:hidden card overflow-hidden h-[calc(100vh-180px)]">
+      <div className="md:hidden card overflow-hidden h-[calc(100dvh-225px)]">
         {mobileView === "list" ? (
           <div className="h-full">{ClientList}</div>
         ) : (
