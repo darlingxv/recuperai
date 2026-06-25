@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type RefObject } from "react";
 import { Client, NegotiationResult } from "@/lib/types";
 import { brl, riskColor, riskLabel, statusColor, statusLabel } from "@/lib/format";
 
@@ -55,12 +55,15 @@ export default function NegotiationWorkspace({
   const [banner, setBanner] = useState<{ text: string; ok: boolean } | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "chat">("chat");
   const [showReasoning, setShowReasoning] = useState(false);
-  const msgEndRef = useRef<HTMLDivElement>(null);
+  const desktopBodyRef = useRef<HTMLDivElement>(null);
+  const mobileBodyRef = useRef<HTMLDivElement>(null);
 
   const selected = clients.find((c) => c.id === selectedId) || clients[0];
 
   useEffect(() => {
-    msgEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    [desktopBodyRef, mobileBodyRef].forEach((r) => {
+      if (r.current) r.current.scrollTop = r.current.scrollHeight;
+    });
   }, [selected?.messages.length, sending]);
 
   // Atualiza as conversas a cada 5s para mostrar respostas reais que chegam pelo WhatsApp
@@ -184,7 +187,7 @@ export default function NegotiationWorkspace({
   );
 
   const ChatHeader = (
-    <div className="px-3 sm:px-4 py-2.5 border-b border-border flex items-center gap-2.5">
+    <div className="px-3 sm:px-4 py-2.5 border-b border-border flex items-center gap-2.5 shrink-0">
       <button onClick={() => setMobileView("list")} className="md:hidden p-1 -ml-1 text-muted"><Icon name="back" className="w-5 h-5" /></button>
       <div className="w-8 h-8 rounded-full bg-brand/15 text-brand flex items-center justify-center text-[12px] font-medium shrink-0">{initials(selected.name)}</div>
       <div className="flex-1 min-w-0">
@@ -199,8 +202,8 @@ export default function NegotiationWorkspace({
     </div>
   );
 
-  const ChatBody = (
-    <div className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-4 space-y-3">
+  const renderChatBody = (bodyRef: RefObject<HTMLDivElement | null>) => (
+    <div ref={bodyRef} className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-4 space-y-3">
       {escalated && (
         <div className="bg-warning/10 border border-warning/30 rounded-lg px-3 py-2 flex items-start gap-2">
           <Icon name="user" className="w-4 h-4 text-warning shrink-0 mt-0.5" />
@@ -229,12 +232,11 @@ export default function NegotiationWorkspace({
           </div>
         </div>
       )}
-      <div ref={msgEndRef} />
     </div>
   );
 
   const ChatFooter = (
-    <div className="border-t border-border p-3">
+    <div className="border-t border-border p-3 shrink-0">
       {banner && (
         <div className={`mb-2 text-[11px] px-2.5 py-1.5 rounded-lg ${banner.ok ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>{banner.text}</div>
       )}
@@ -302,18 +304,18 @@ export default function NegotiationWorkspace({
   return (
     <>
       {/* DESKTOP: 3 colunas */}
-      <div className="hidden md:grid md:grid-cols-[210px_1fr_260px] h-[calc(100dvh-110px)] card overflow-hidden">
-        <div className="border-r border-border">{ClientList}</div>
-        <div className="flex flex-col min-w-0">{ChatHeader}{ChatBody}{ChatFooter}</div>
+      <div className="hidden md:grid md:grid-cols-[210px_1fr_260px] h-[calc(100dvh-130px)] card overflow-hidden">
+        <div className="border-r border-border overflow-y-auto">{ClientList}</div>
+        <div className="flex flex-col min-w-0 h-full">{ChatHeader}{renderChatBody(desktopBodyRef)}{ChatFooter}</div>
         <div className="border-l border-border overflow-y-auto p-3.5">{ReasoningInner}</div>
       </div>
 
       {/* MOBILE: lista OU chat */}
-      <div className="md:hidden card overflow-hidden h-[calc(100dvh-225px)]">
+      <div className="md:hidden card overflow-hidden h-[calc(100dvh-230px)]">
         {mobileView === "list" ? (
-          <div className="h-full">{ClientList}</div>
+          <div className="h-full overflow-y-auto">{ClientList}</div>
         ) : (
-          <div className="flex flex-col h-full">{ChatHeader}{ChatBody}{ChatFooter}</div>
+          <div className="flex flex-col h-full">{ChatHeader}{renderChatBody(mobileBodyRef)}{ChatFooter}</div>
         )}
       </div>
 
