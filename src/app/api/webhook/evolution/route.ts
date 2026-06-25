@@ -3,13 +3,10 @@ import { handleIncomingMessage } from "@/lib/incoming";
 
 export const dynamic = "force-dynamic";
 
-// Aceita /api/webhook/evolution E /api/webhook/evolution/messages-upsert
-// (a Evolution pode adicionar o nome do evento na URL quando "webhook_by_events" esta ligado)
-
 export async function GET() {
   return NextResponse.json({
     ok: true,
-    hint: "Webhook Evolution do Recuper.ai ativo. Configure esta URL na Evolution (evento MESSAGES_UPSERT).",
+    hint: "Webhook Evolution do Recuper.ai ativo. Configure esta URL na Evolution (evento MESSAGES_UPSERT, webhook_by_events DESLIGADO).",
   });
 }
 

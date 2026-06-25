@@ -304,14 +304,14 @@ export default function NegotiationWorkspace({
   return (
     <>
       {/* DESKTOP: 3 colunas */}
-      <div className="hidden md:grid md:grid-cols-[210px_1fr_260px] h-[calc(100dvh-130px)] card overflow-hidden">
+      <div className="hidden md:grid md:grid-cols-[210px_1fr_260px] h-[78vh] card overflow-hidden">
         <div className="border-r border-border overflow-y-auto">{ClientList}</div>
         <div className="flex flex-col min-w-0 h-full">{ChatHeader}{renderChatBody(desktopBodyRef)}{ChatFooter}</div>
         <div className="border-l border-border overflow-y-auto p-3.5">{ReasoningInner}</div>
       </div>
 
       {/* MOBILE: lista OU chat */}
-      <div className="md:hidden card overflow-hidden h-[calc(100dvh-230px)]">
+      <div className="md:hidden card overflow-hidden h-[72dvh]">
         {mobileView === "list" ? (
           <div className="h-full overflow-y-auto">{ClientList}</div>
         ) : (
