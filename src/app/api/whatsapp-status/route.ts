@@ -25,7 +25,7 @@ export async function GET() {
       let raw: any = text;
       try { raw = JSON.parse(text); } catch {}
       const state = raw?.instance?.state || raw?.state;
-      return NextResponse.json({ provider, configured: true, httpStatus: res.status, connected: state === "open", state, raw });
+      return NextResponse.json({ provider, configured: true, httpStatus: res.status, connected: state === "open", state, url: base, instance, raw });
     }
 
     // zapi

@@ -27,12 +27,13 @@ export default function WhatsAppTest() {
         setConnMsg(`Erro ao falar com a ${prov}: ${d.error}`);
       } else if (d.connected) {
         setConnOk(true);
-        setConnMsg(`${prov} CONECTADO ✓ — pode enviar. Se ainda nao envia para outros, teste abaixo.`);
+        const cfg = d.provider === "evolution" ? ` (URL: ${d.url}, instancia: ${d.instance})` : "";
+        setConnMsg(`${prov} CONECTADO ✓${cfg} — pode enviar. Se ainda nao envia, teste abaixo.`);
       } else {
         setConnOk(false);
         const extra =
           d.provider === "evolution"
-            ? `Estado da instancia: "${d.state || "?"}". Conecte a instancia (escaneie o QR no Evolution Manager).`
+            ? `Usando URL ${d.url} e instancia "${d.instance}". Estado: "${d.state || "?"}". Confira se o nome da instancia bate com o do painel e se o EVOLUTION_API_URL e http://localhost:8080.`
             : `Resposta: ${typeof d.raw === "object" ? JSON.stringify(d.raw) : String(d.raw)}. Escaneie o QR ou confira o Client-Token.`;
         setConnMsg(`${prov} NAO conectado. ${extra}`);
       }
