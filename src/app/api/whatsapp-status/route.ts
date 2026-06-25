@@ -10,7 +10,14 @@ export async function GET() {
     return NextResponse.json({
       provider,
       configured: false,
-      message: "Nenhum provedor configurado. Preencha EVOLUTION_* ou ZAPI_* no .env.local.",
+      message: "Nenhum provedor configurado.",
+      detected: {
+        EVOLUTION_API_URL: !!process.env.EVOLUTION_API_URL,
+        EVOLUTION_API_KEY: !!process.env.EVOLUTION_API_KEY,
+        EVOLUTION_INSTANCE: !!process.env.EVOLUTION_INSTANCE,
+        ZAPI_INSTANCE_ID: !!process.env.ZAPI_INSTANCE_ID,
+        ZAPI_TOKEN: !!process.env.ZAPI_TOKEN,
+      },
     });
   }
 

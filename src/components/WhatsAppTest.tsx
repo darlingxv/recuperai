@@ -21,7 +21,20 @@ export default function WhatsAppTest() {
       const prov = d.provider === "evolution" ? "Evolution" : d.provider === "zapi" ? "Z-API" : "WhatsApp";
       if (d.configured === false) {
         setConnOk(false);
-        setConnMsg(d.message);
+        let extra = "";
+        if (d.detected) {
+          const e = d.detected;
+          const faltam: string[] = [];
+          if (!e.EVOLUTION_API_URL) faltam.push("EVOLUTION_API_URL");
+          if (!e.EVOLUTION_API_KEY) faltam.push("EVOLUTION_API_KEY");
+          if (!e.EVOLUTION_INSTANCE) faltam.push("EVOLUTION_INSTANCE");
+          if (faltam.length === 3) {
+            extra = " O servidor NAO leu NENHUMA variavel da Evolution. Quase sempre e porque o servidor nao foi reiniciado: FECHE a janela preta e rode o INICIAR-WINDOWS.bat de novo.";
+          } else if (faltam.length > 0) {
+            extra = " Lidas em parte. Faltando: " + faltam.join(", ") + ".";
+          }
+        }
+        setConnMsg((d.message || "Nenhum provedor configurado.") + extra);
       } else if (d.error) {
         setConnOk(false);
         setConnMsg(`Erro ao falar com a ${prov}: ${d.error}`);
