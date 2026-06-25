@@ -3,6 +3,9 @@ import { handleIncomingMessage } from "@/lib/incoming";
 
 export const dynamic = "force-dynamic";
 
+// Aceita /api/webhook/evolution E /api/webhook/evolution/messages-upsert
+// (a Evolution pode adicionar o nome do evento na URL quando "webhook_by_events" esta ligado)
+
 export async function GET() {
   return NextResponse.json({
     ok: true,
@@ -22,7 +25,6 @@ function extractText(message: any): string {
 
 export async function POST(req: NextRequest) {
   try {
-    // seguranca opcional por token na URL
     const expected = process.env.WEBHOOK_TOKEN;
     if (expected && req.nextUrl.searchParams.get("token") !== expected) {
       return NextResponse.json({ ok: false }, { status: 401 });
@@ -31,8 +33,9 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const body: any = await req.json().catch(() => ({}));
 
-    // Evolution manda varios eventos; so tratamos mensagem recebida
     const event = String(body?.event || "").toLowerCase().replace(/_/g, ".");
+    console.log(`[Webhook Evolution] recebido | evento=${event || "?"}`);
+
     if (event && event !== "messages.upsert") {
       return NextResponse.json({ ok: true, ignored: `evento ${event}` });
     }
@@ -47,6 +50,7 @@ export async function POST(req: NextRequest) {
     const phone = remoteJid.split("@")[0];
     const text = extractText(data?.message);
     const name = data?.pushName || "Cliente WhatsApp";
+    console.log(`[Webhook Evolution] de ${phone} (${name}): "${text}"`);
 
     const result = await handleIncomingMessage(phone, text, name);
     return NextResponse.json(result);

@@ -29,6 +29,8 @@ services:
       CACHE_LOCAL_ENABLED: "true"
     depends_on:
       - postgres
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - evolution_instances:/evolution/instances
 
